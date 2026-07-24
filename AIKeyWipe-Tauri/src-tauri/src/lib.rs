@@ -2,7 +2,6 @@ mod models;
 mod wipe_service;
 
 use models::{WipeTarget, WipeResult, ScannedFile};
-use std::sync::Mutex;
 
 /// Tauri 命令：执行批量清除
 #[tauri::command]

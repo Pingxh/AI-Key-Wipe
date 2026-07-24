@@ -15,13 +15,17 @@ const listState = $('listState');
 const wipeBtn = $('wipeBtn');
 const mainPanel = $('mainPanel');
 
-// ===== Tauri 命令（通过 window.__TAURI__）=====
+// ===== Tauri 命令（通过 __TAURI_INTERNALS__）=====
 async function invoke(cmd, args = {}) {
+  const fn = window.__TAURI_INTERNALS__?.invoke;
+  if (!fn) {
+    console.warn('Tauri IPC 不可用');
+    return null;
+  }
   try {
-    // Tauri v2
-    return await window.__TAURI__?.core?.invoke(cmd, args);
+    return await fn(cmd, args);
   } catch (e) {
-    console.warn('Tauri 不可用，使用模拟模式:', e.message);
+    console.warn('Tauri IPC 错误:', e);
     return null;
   }
 }

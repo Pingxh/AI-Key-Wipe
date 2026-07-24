@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::{self, Read};
+use std::io::Read;
 use regex::Regex;
 use crate::models::{WipeTarget, WipeResult, ScannedFile};
 
@@ -202,14 +202,14 @@ pub fn scan_for_keys(progress: impl Fn(&str)) -> Vec<ScannedFile> {
                     for sub in sub_entries.flatten() {
                         let sub_path = sub.path();
                         if sub_path.is_file() {
-                            check_file(&sub_path, &patterns, &mut results, &progress);
+                            check_file(&sub_path, patterns, &mut results, &progress);
                         }
                     }
                 }
                 continue;
             }
             if path.is_file() {
-                check_file(&path, &patterns, &mut results, &progress);
+                check_file(&path, patterns, &mut results, &progress);
             }
         }
     }
@@ -218,7 +218,7 @@ pub fn scan_for_keys(progress: impl Fn(&str)) -> Vec<ScannedFile> {
 
 fn check_file(
     path: &std::path::PathBuf,
-    patterns: &&[&str; 9],
+    patterns: &[&str],
     results: &mut Vec<ScannedFile>,
     progress: impl Fn(&str),
 ) {
