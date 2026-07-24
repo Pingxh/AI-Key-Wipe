@@ -252,32 +252,36 @@ function showResults(results) {
   $('resultsView').innerHTML = html;
 }
 
-// ===== 文件选择器（回退到输入框）=====
-function pickFile(id) {
-  const path = prompt('输入文件路径:');
+// ===== 文件选择器 =====
+async function pickFile(id) {
+  const t = state.targets.find(x => x.id === id);
+  if (!t) return;
+  const parent = t.file_path.split('/').slice(0, -1).join('/') || undefined;
+  const path = await invoke('cmd_pick_file', { defaultDir: parent });
   if (path) {
-    const t = state.targets.find(x => x.id === id);
-    if (t) {
-      t.file_path = path;
-      t.name = path.split('/').slice(-2).join('/');
-      render();
-    }
+    t.file_path = path;
+    t.name = path.split('/').slice(-2).join('/');
+    render();
   }
 }
 
 function revealFinder(path) {
-  // Tauri 中暂不支持 Finder 显示
-  alert(`文件路径: ${path}\n请在文件管理器中手动打开。`);
+  invoke('cmd_reveal', { path });
 }
 
-function scanFile(id) {
+async function scanFile(id) {
   const t = state.targets.find(x => x.id === id);
   if (!t) return;
-  alert(`扫描功能需要 Tauri 后端支持。\n文件: ${t.file_path}\n自定义模式: ${t.custom_patterns?.join(', ') || '无'}`);
+  const results = await invoke('cmd_scan_file', { path: t.file_path, customPatterns: t.custom_patterns });
+  if (!results) return;
+  const msg = results.length
+    ? `发现以下匹配项：\n${results.join('\n')}`
+    : '未发现 API Key。';
+  alert(msg);
 }
 
-function addCustom() {
-  const path = prompt('输入要清除的文件路径:');
+async function addCustom() {
+  const path = await invoke('cmd_pick_file', { defaultDir: '~' });
   if (path) {
     const name = path.split('/').slice(-2).join('/');
     state.targets.push({
