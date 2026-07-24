@@ -12,3 +12,9 @@ backups/
 
 # Logs
 wipe-log.txt
+
+# Tauri build
+AIKeyWipe-Tauri/src-tauri/target/
+
+# Zip packages
+*.zip
