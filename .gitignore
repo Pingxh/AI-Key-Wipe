@@ -1,0 +1,14 @@
+# Build
+AIKeyWipe/build/
+*.app
+
+# macOS
+.DS_Store
+*.swp
+*.swo
+
+# Backups
+backups/
+
+# Logs
+wipe-log.txt
