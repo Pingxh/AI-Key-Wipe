@@ -78,6 +78,27 @@ fn cmd_pick_file(default_dir: Option<String>) -> Option<String> {
     dialog.pick_file().map(|p| p.to_string_lossy().to_string())
 }
 
+/// Tauri 命令：原生确认对话框
+#[tauri::command]
+fn cmd_confirm(message: String) -> bool {
+    rfd::MessageDialog::new()
+        .set_title("AI-Key-Wipe")
+        .set_description(&message)
+        .set_buttons(rfd::MessageButtons::YesNo)
+        .show()
+        == rfd::MessageDialogResult::Yes
+}
+
+/// Tauri 命令：原生提示对话框
+#[tauri::command]
+fn cmd_alert(message: String) {
+    rfd::MessageDialog::new()
+        .set_title("AI-Key-Wipe")
+        .set_description(&message)
+        .set_buttons(rfd::MessageButtons::Ok)
+        .show();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -142,7 +163,7 @@ pub fn run() {
                 let _ = window.app_handle().set_activation_policy(tauri::ActivationPolicy::Accessory);
             }
         })
-        .invoke_handler(tauri::generate_handler![cmd_wipe, cmd_scan, cmd_scan_file, cmd_reveal, cmd_pick_file])
+        .invoke_handler(tauri::generate_handler![cmd_wipe, cmd_scan, cmd_scan_file, cmd_reveal, cmd_pick_file, cmd_confirm, cmd_alert])
         .run(tauri::generate_context!())
         .expect("启动 AI-Key-Wipe 失败");
 }

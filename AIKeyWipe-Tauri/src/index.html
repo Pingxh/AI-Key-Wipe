@@ -30,7 +30,7 @@
           <button class="btn btn-icon" onclick="addCustom()" title="从 Finder 选择文件">📂 自定义</button>
           <button class="btn btn-icon" onclick="startScan()" title="自动扫描 ~/ 下含 API Key 的文件">🔍 扫描</button>
         </div>
-        <button class="btn btn-wipe" id="wipeBtn" onclick="confirmWipe()" disabled>
+        <button class="btn btn-wipe" id="wipeBtn" onclick="confirmWipe()">
           🗑 清除所选 (0)
         </button>
         <label class="toggle-label">
@@ -77,5 +77,8 @@
 </div>
 
 <script src="app.js"></script>
+<button onclick="window.alert('GLOBAL_OK')" style="position:fixed;bottom:0;left:0;z-index:99999;padding:10px 20px;background:red;color:white;border:none;font-size:16px;font-weight:bold;cursor:pointer;">
+  全局测试
+</button>
 </body>
 </html>

@@ -17,13 +17,12 @@ const mainPanel = $('mainPanel');
 
 // ===== Tauri 命令（通过 __TAURI_INTERNALS__）=====
 async function invoke(cmd, args = {}) {
-  const fn = window.__TAURI_INTERNALS__?.invoke;
-  if (!fn) {
+  if (!window.__TAURI_INTERNALS__?.invoke) {
     console.warn('Tauri IPC 不可用');
     return null;
   }
   try {
-    return await fn(cmd, args);
+    return await window.__TAURI_INTERNALS__.invoke(cmd, args);
   } catch (e) {
     console.warn('Tauri IPC 错误:', e);
     return null;
@@ -189,6 +188,10 @@ async function startScan() {
     }
   }
   state.isScanning = false;
+  // 自动选中所有新增目标
+  if (added > 0) {
+    state.selectedIds = new Set(state.targets.map(t => t.id));
+  }
   render();
 
   showResults([{
@@ -201,10 +204,6 @@ async function startScan() {
 // ===== 清除 =====
 async function confirmWipe() {
   if (state.selectedIds.size === 0) return;
-  const names = [...state.selectedIds].map(id =>
-    state.targets.find(t => t.id === id)?.name).filter(Boolean).slice(0, 3);
-  if (!confirm(`将清除 ${state.selectedIds.size} 个选中的文件中的所有 API Key。\n${names.join('、')}${names.length > 3 ? '等' : ''}\n\n已备份的文件可随时恢复。`)) return;
-
   state.isWiping = true;
   updateWipeBtn();
 
@@ -227,6 +226,16 @@ async function confirmWipe() {
 
   render();
   showResults(results);
+
+  // 结果摘要提示
+  const success = results.filter(r => r.status === 'success').length;
+  const failed = results.filter(r => r.status === 'failed').length;
+  const skipped = results.filter(r => r.status === 'skipped').length;
+  let summary = '';
+  if (success > 0) summary += `✅ 成功清除 ${success} 个文件\n`;
+  if (failed > 0) summary += `❌ ${failed} 个文件清除失败\n`;
+  if (skipped > 0) summary += `⏭️ ${skipped} 个已跳过\n`;
+  if (summary) invoke('cmd_alert', { message: summary.trim() });
 }
 
 // ===== 显示结果 =====
@@ -277,7 +286,7 @@ async function scanFile(id) {
   const msg = results.length
     ? `发现以下匹配项：\n${results.join('\n')}`
     : '未发现 API Key。';
-  alert(msg);
+  invoke('cmd_alert', { message: msg });
 }
 
 async function addCustom() {
