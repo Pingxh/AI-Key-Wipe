@@ -1,6 +1,8 @@
 mod models;
 mod wipe_service;
+mod storage;
 
+use std::fs;
 use models::{WipeTarget, WipeResult, ScannedFile};
 use tauri::Manager;
 use tauri::menu::{MenuBuilder, SubmenuBuilder, MenuItemBuilder, PredefinedMenuItem};
@@ -99,6 +101,35 @@ fn cmd_alert(message: String) {
         .show();
 }
 
+/// Tauri 命令：加载已保存的目标列表
+#[tauri::command]
+fn cmd_load_targets() -> Vec<WipeTarget> {
+    storage::load_targets()
+}
+
+/// Tauri 命令：持久化保存目标列表
+#[tauri::command]
+fn cmd_save_targets(targets: Vec<WipeTarget>) {
+    storage::save_targets(&targets);
+}
+
+/// Tauri 命令：检查路径是否存在
+#[tauri::command]
+fn cmd_check_path(path: String) -> bool {
+    storage::path_exists(&path)
+}
+
+/// Tauri 命令：清空本地持久化数据
+#[tauri::command]
+fn cmd_clear_data() -> bool {
+    let path = storage::storage_path();
+    if path.exists() {
+        fs::remove_file(&path).is_ok()
+    } else {
+        true
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -118,8 +149,20 @@ pub fn run() {
                 .item(&quit_item)
                 .build()?;
 
+            let edit_submenu = SubmenuBuilder::new(app, "编辑")
+                .item(&PredefinedMenuItem::undo(app, Some("撤销"))?)
+                .item(&PredefinedMenuItem::redo(app, Some("重做"))?)
+                .separator()
+                .item(&PredefinedMenuItem::cut(app, Some("剪切"))?)
+                .item(&PredefinedMenuItem::copy(app, Some("复制"))?)
+                .item(&PredefinedMenuItem::paste(app, Some("粘贴"))?)
+                .separator()
+                .item(&PredefinedMenuItem::select_all(app, Some("全选"))?)
+                .build()?;
+
             let menu = MenuBuilder::new(app)
                 .item(&app_submenu)
+                .item(&edit_submenu)
                 .build()?;
 
             app.set_menu(menu)?;
@@ -163,7 +206,7 @@ pub fn run() {
                 let _ = window.app_handle().set_activation_policy(tauri::ActivationPolicy::Accessory);
             }
         })
-        .invoke_handler(tauri::generate_handler![cmd_wipe, cmd_scan, cmd_scan_file, cmd_reveal, cmd_pick_file, cmd_confirm, cmd_alert])
+        .invoke_handler(tauri::generate_handler![cmd_wipe, cmd_scan, cmd_scan_file, cmd_reveal, cmd_pick_file, cmd_confirm, cmd_alert, cmd_load_targets, cmd_save_targets, cmd_check_path, cmd_clear_data])
         .run(tauri::generate_context!())
         .expect("启动 AI-Key-Wipe 失败");
 }

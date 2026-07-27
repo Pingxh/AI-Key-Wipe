@@ -4,6 +4,8 @@ let state = {
   selectedIds: new Set(),
   isWiping: false,
   isScanning: false,
+  // 路径检查结果缓存：{ filePath: boolean }
+  pathStatus: {},
 };
 
 // ===== DOM 引用 =====
@@ -29,6 +31,39 @@ async function invoke(cmd, args = {}) {
   }
 }
 
+// ===== 持久化 =====
+async function saveTargets() {
+  await invoke('cmd_save_targets', { targets: state.targets });
+}
+
+async function loadTargets() {
+  const result = await invoke('cmd_load_targets');
+  if (result && result.length > 0) {
+    state.targets = result;
+  }
+  return result;
+}
+
+// ===== 路径检查 =====
+async function checkPath(path) {
+  if (state.pathStatus[path] !== undefined) {
+    return state.pathStatus[path];
+  }
+  const exists = await invoke('cmd_check_path', { path });
+  state.pathStatus[path] = exists ?? false;
+  return state.pathStatus[path];
+}
+
+async function checkAllPaths() {
+  const paths = state.targets.map(t => t.file_path);
+  const tasks = paths.map(p => checkPath(p));
+  await Promise.all(tasks);
+}
+
+function isPathFailed(t) {
+  return t && !state.pathStatus[t.file_path];
+}
+
 // ===== 渲染目标列表 =====
 function render() {
   const enabled = state.targets.filter(t => t.enabled).length;
@@ -40,25 +75,52 @@ function render() {
 
   if (!hasData) return;
 
-  targetList.innerHTML = state.targets.map(t => `
-    <div class="target-item ${state.selectedIds.has(t.id) ? 'selected' : ''}"
-         data-id="${t.id}" onclick="toggleSelect('${t.id}')">
+  targetList.innerHTML = state.targets.map(t => {
+    const failed = isPathFailed(t);
+    return `
+    <div class="target-item ${state.selectedIds.has(t.id) ? 'selected' : ''} ${failed ? 'path-failed' : ''}"
+         data-id="${t.id}" onclick="handleTargetClick('${t.id}')">
+      ${failed ? '<span class="path-warning" title="路径失效">⚠️</span>' : ''}
       <span class="target-dot ${t.enabled ? 'on' : 'off'}"></span>
       <div class="target-info">
-        <div class="target-name">${esc(t.name)}</div>
-        <div class="target-path">${esc(t.file_path)}</div>
+        <div class="target-name">${esc(t.name)}${failed ? ' <span class="path-failed-label">（路径失效）</span>' : ''}</div>
+        <div class="target-path ${failed ? 'path-failed-text' : ''}">${esc(t.file_path)}</div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   updateWipeBtn();
   updateRightPanel();
+  // 更新全选按钮文字
+  const btnSelectAll = document.getElementById('btnSelectAll');
+  if (btnSelectAll) {
+    const allSelected = state.targets.length > 0 && state.selectedIds.size === state.targets.length;
+    btnSelectAll.textContent = allSelected ? '取消全选' : '全选';
+  }
 }
 
-function esc(s) { return s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]); }
+function esc(s) { return s.replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'})[c]); }
 
-// ===== 选择 =====
-function toggleSelect(id) {
+// ===== 点击处理 =====
+async function handleTargetClick(id) {
+  const t = state.targets.find(x => x.id === id);
+  if (!t) return;
+
+  // 如果路径失效，弹出提示
+  if (isPathFailed(t)) {
+    const ok = await invoke('cmd_confirm', { message: `路径失效：\n${t.file_path}\n\n确定要从列表中移除此文件吗？` });
+    if (ok) {
+      state.targets = state.targets.filter(x => x.id !== id);
+      state.selectedIds.delete(id);
+      delete state.pathStatus[t.file_path];
+      render();
+      await saveTargets();
+    }
+    return;
+  }
+
+  // 正常选中/取消
   if (state.selectedIds.has(id)) {
     state.selectedIds.delete(id);
   } else {
@@ -138,9 +200,35 @@ function showDetail(t) {
       </div>
     </div>
     <div class="detail-section">
-      <h4>自定义匹配模式</h4>
+      <div style="display:flex;align-items:center;gap:6px">
+        <h4>自定义匹配模式</h4>
+        <span class="pattern-help-tip" onclick="showPatternTips()" title="点击查看使用说明">ⓘ</span>
+      </div>
       <div class="custom-patterns-area">
-        <textarea onchange="updateTarget('${t.id}','customPatterns',this.value)">${esc(t.custom_patterns?.join('\n') || '')}</textarea>
+        <textarea onblur="updateTarget('${t.id}','customPatterns',this.value)" placeholder="每行一个匹配关键字，例如：sklearn / openai_api_key">${esc(t.custom_patterns?.join('\n') || '')}</textarea>
+      </div>
+      <!-- 使用说明弹窗 -->
+      <div id="patternTips" class="pattern-tips" style="display:none">
+        <div class="pattern-tips-header">
+          <h5>ⓘ 自定义匹配模式使用说明</h5>
+          <button class="pattern-tips-close" onclick="hidePatternTips()">✕</button>
+        </div>
+        <p><strong>🔍 匹配方式</strong></p>
+        <ul class="pattern-tips-list">
+          <li>每行输入一个关键字，支持多行</li>
+          <li>只要某行<span class="tip-code">包含</span>关键字，就会匹配</li>
+        </ul>
+        <p><strong>🗑 清除行为</strong></p>
+        <ul class="pattern-tips-list">
+          <li>匹配到 <code>=</code> 或 <code>:</code> → 清除后面的值，保留 key 名</li>
+          <li>与内置模式重复的关键字不会重复匹配</li>
+        </ul>
+        <p><strong>📝 示例</strong></p>
+        <div class="pattern-tips-example">
+          <div>sklearn</div>
+          <div>openai_api_key</div>
+          <div>ANTHROPIC_TOKEN</div>
+        </div>
       </div>
     </div>
     <div class="detail-section">
@@ -150,7 +238,7 @@ function showDetail(t) {
   `;
 }
 
-function updateTarget(id, field, value) {
+async function updateTarget(id, field, value) {
   const t = state.targets.find(x => x.id === id);
   if (!t) return;
   if (field === 'customPatterns') {
@@ -161,16 +249,17 @@ function updateTarget(id, field, value) {
     t.name = value;
   }
   render();
+  await saveTargets();
 }
 
 // ===== 扫描 =====
-async function startScan() {
+const originalStartScan = async function() {
   state.isScanning = true;
   render();
   $('scanStatus').textContent = '扫描 ~/ 目录下的配置文件…';
 
   const result = await invoke('cmd_scan');
-  if (!result) return;
+  if (!result) { state.isScanning = false; render(); return; }
 
   let added = 0, skipped = 0;
   for (const f of result) {
@@ -192,13 +281,26 @@ async function startScan() {
   if (added > 0) {
     state.selectedIds = new Set(state.targets.map(t => t.id));
   }
+  // 检查路径（新增的路径需要更新 pathStatus）
+  await checkAllPaths();
   render();
+  // 保存
+  await saveTargets();
 
   showResults([{
     target_name: '自动扫描',
     status: 'success',
     message: `发现 ${result.length} 个文件，新增 ${added} 个，${skipped} 个已存在`,
   }]);
+};
+
+async function startScan() {
+  state.isScanning = true;
+  render();
+  startScanAnimation();
+  $('scanStatus').textContent = '扫描 ~/ 目录下的配置文件…';
+  await originalStartScan();
+  stopScanAnimation();
 }
 
 // ===== 清除 =====
@@ -208,6 +310,9 @@ async function confirmWipe() {
   updateWipeBtn();
 
   const targets = [...state.selectedIds].map(id => state.targets.find(t => t.id === id)).filter(Boolean);
+  if (targets.length > 0) {
+    invoke('cmd_alert', { message: '即将清除: ' + targets[0].file_path });
+  }
   const results = await invoke('cmd_wipe', { targets });
   state.isWiping = false;
 
@@ -222,8 +327,8 @@ async function confirmWipe() {
         state.selectedIds.delete(r.target_id);
       }
     }
+    await saveTargets();
   }
-
   render();
   showResults(results);
 
@@ -270,7 +375,10 @@ async function pickFile(id) {
   if (path) {
     t.file_path = path;
     t.name = path.split('/').slice(-2).join('/');
+    // 更新路径状态
+    state.pathStatus[path] = true;
     render();
+    await saveTargets();
   }
 }
 
@@ -301,7 +409,9 @@ async function addCustom() {
       custom_patterns: [],
     });
     state.selectedIds = new Set([state.targets[state.targets.length - 1].id]);
+    state.pathStatus[path] = true;
     render();
+    await saveTargets();
   }
 }
 
@@ -325,32 +435,76 @@ function stopScanAnimation() {
   if (animTimer) { clearInterval(animTimer); animTimer = null; }
 }
 
-// 重写 startScan 以包含动画
-const originalStartScan = startScan;
-startScan = async function() {
-  state.isScanning = true;
-  render();
-  startScanAnimation();
-  $('scanStatus').textContent = '扫描 ~/ 目录下的配置文件…';
-  await originalStartScan();
-  stopScanAnimation();
-};
-
 // ===== 键盘快捷键 =====
 document.addEventListener('keydown', e => {
   if (e.metaKey && e.key === 'a') {
     e.preventDefault();
-    if (state.targets.length > 0) {
-      state.selectedIds = new Set(state.targets.map(t => t.id));
-      render();
-    }
+    selectAll();
   }
   if (e.key === 'Delete' && state.selectedIds.size > 0) {
     state.targets = state.targets.filter(t => !state.selectedIds.has(t.id));
     state.selectedIds.clear();
     render();
+    saveTargets();
   }
 });
 
+// ===== 列表操作 =====
+function selectAll() {
+  if (state.targets.length === 0) return;
+  const allSelected = state.selectedIds.size === state.targets.length;
+  if (allSelected) {
+    state.selectedIds.clear();
+  } else {
+    // 全选时排除路径失效的
+    state.selectedIds = new Set(
+      state.targets.filter(t => !isPathFailed(t)).map(t => t.id)
+    );
+  }
+  render();
+}
+
+async function clearList() {
+  if (state.selectedIds.size === 0) return;
+  const n = state.selectedIds.size;
+  const ok = await invoke('cmd_confirm', { message: `确定要从列表中移除选中的 ${n} 个文件吗？\n（不会删除文件本身）` });
+  if (ok) {
+    state.targets = state.targets.filter(t => !state.selectedIds.has(t.id));
+    state.selectedIds.clear();
+    render();
+    await saveTargets();
+  }
+}
+
+// ===== 自定义模式说明 =====
+function showPatternTips() {
+  const el = $('patternTips');
+  if (el) el.style.display = 'block';
+}
+function hidePatternTips() {
+  const el = $('patternTips');
+  if (el) el.style.display = 'none';
+}
+
+// ===== 清除本地数据 =====
+async function clearData() {
+  const ok = await invoke('cmd_confirm', { message: '确定要清除所有本地数据吗？\n（清除目标列表将被清空，不影响已扫描的文件）' });
+  if (ok) {
+    const cleared = await invoke('cmd_clear_data');
+    if (cleared !== false) {
+      state.targets = [];
+      state.selectedIds.clear();
+      state.pathStatus = {};
+      render();
+      invoke('cmd_alert', { message: '本地数据已清除' });
+    }
+  }
+}
+
 // ===== 初始化 =====
-render();
+(async () => {
+  await loadTargets();
+  // 先检查路径再渲染，避免首次显示全部失效
+  await checkAllPaths();
+  render();
+})();

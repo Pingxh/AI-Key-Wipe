@@ -16,13 +16,23 @@
       <h2>未发现 API Key 文件</h2>
       <p>点击下方按钮扫描配置文件</p>
       <button class="btn btn-primary" onclick="startScan()">🔍 扫描文件</button>
+      <button class="btn-link btn-clear-data" onclick="clearData()" style="font-size:12px">清除本地数据</button>
     </div>
 
     <!-- 有数据状态 -->
     <div id="listState" class="list-state" style="display:none">
       <div class="list-header">
-        <span class="list-title">清除目标</span>
-        <span class="list-count" id="targetCount">0/0</span>
+        <div style="display:flex;align-items:center;gap:8px;overflow:hidden;min-width:0">
+          <span class="list-title">清除目标</span>
+          <span class="list-count" id="targetCount">0/0</span>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-shrink:0">
+          <button class="btn-link" id="btnSelectAll" onclick="selectAll()" style="font-size:12px">全选</button>
+          <span style="color:var(--border)">|</span>
+          <button class="btn-link" onclick="clearList()" style="font-size:12px;color:var(--red)">移出列表</button>
+          <span style="color:var(--border)">|</span>
+          <button class="btn-link" onclick="clearData()" style="font-size:12px;color:var(--secondary)">清除数据</button>
+        </div>
       </div>
       <div class="target-list" id="targetList"></div>
       <div class="list-footer">
@@ -77,8 +87,5 @@
 </div>
 
 <script src="app.js"></script>
-<button onclick="window.alert('GLOBAL_OK')" style="position:fixed;bottom:0;left:0;z-index:99999;padding:10px 20px;background:red;color:white;border:none;font-size:16px;font-weight:bold;cursor:pointer;">
-  全局测试
-</button>
 </body>
 </html>
