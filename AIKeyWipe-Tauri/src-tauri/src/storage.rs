@@ -4,11 +4,11 @@ use std::path::PathBuf;
 use crate::models::WipeTarget;
 
 /// 持久化存储：targets 保存为 app 沙盒 data 目录下的 targets.json
-/// 路径基于 app 标识符（com.ai-key-wipe），与 tauri.conf.json 一致
+/// 路径基于 app 标识符（com.keyclean），与 tauri.conf.json 一致
 pub fn storage_path() -> PathBuf {
     let app_dir = dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("com.ai-key-wipe");
+        .join("com.keyclean");
     let _ = fs::create_dir_all(&app_dir);
     app_dir.join("targets.json")
 }

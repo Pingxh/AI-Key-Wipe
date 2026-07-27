@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicedoc/tauri/refs/heads/dev/crates/tauri-config-schema/schema.json",
-  "productName": "AI-Key-Wipe",
+  "productName": "KeyClean",
   "version": "1.0.0",
-  "identifier": "com.ai-key-wipe",
+  "identifier": "com.keyclean",
   "build": {
     "frontendDist": "../src",
     "beforeDevCommand": "",
@@ -11,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "AI-Key-Wipe — AI 密钥清理工具",
+        "title": "KeyClean — AI 密钥清理工具",
         "width": 800,
         "height": 600,
         "minWidth": 640,
@@ -24,8 +24,8 @@
       "csp": null
     },
     "trayIcon": {
-      "iconPath": "icons/icon.png",
-      "iconAsTemplate": true,
+      "iconPath": "icons/tray-icon.png",
+      "iconAsTemplate": false,
       "menuOnLeftClick": true
     }
   },
