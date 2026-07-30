@@ -4,8 +4,15 @@ on:
   push:
     tags:
       - 'v*'
+<<<<<<< HEAD
 permissions:
       contents: write
+=======
+
+permissions:
+  contents: write
+
+>>>>>>> 43bd2e0 (fix: 添加 Release 创建权限)
 jobs:
   build:
     strategy:
