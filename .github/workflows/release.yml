@@ -9,8 +9,7 @@ permissions:
       contents: write
 =======
 
-permissions:
-  contents: write
+permissions: write-all
 
 >>>>>>> 43bd2e0 (fix: 添加 Release 创建权限)
 jobs:
