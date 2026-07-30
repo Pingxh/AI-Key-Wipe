@@ -5,6 +5,7 @@ mod storage;
 use std::fs;
 use models::{WipeTarget, WipeResult, ScannedFile};
 use tauri::Manager;
+use tauri::TitleBarStyle;
 use tauri::menu::{MenuBuilder, SubmenuBuilder, MenuItemBuilder, PredefinedMenuItem};
 
 /// Tauri 命令：执行批量清除
@@ -166,6 +167,12 @@ pub fn run() {
                 .build()?;
 
             app.set_menu(menu)?;
+
+            // macOS: 透明标题栏，与深色玻璃风格一致
+            #[cfg(target_os = "macos")]
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_title_bar_style(TitleBarStyle::Transparent);
+            }
 
             // 给托盘图标设置菜单
             let tray_menu = MenuBuilder::new(app)

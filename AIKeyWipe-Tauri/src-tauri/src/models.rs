@@ -12,9 +12,14 @@ pub struct WipeTarget {
 
 impl WipeTarget {
     pub fn expanded_path(&self) -> String {
-        let path = self.file_path.replace("~", &dirs::home_dir()
-            .unwrap_or_default().to_string_lossy());
-        path
+        if self.file_path.starts_with("~/") {
+            let home = dirs::home_dir().map(|h| h.to_string_lossy().to_string()).unwrap_or_default();
+            self.file_path.replacen("~/", &format!("{}/", home), 1)
+        } else if self.file_path == "~" {
+            dirs::home_dir().map(|h| h.to_string_lossy().to_string()).unwrap_or_default()
+        } else {
+            self.file_path.clone()
+        }
     }
 }
 

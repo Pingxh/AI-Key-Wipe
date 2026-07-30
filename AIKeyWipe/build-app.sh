@@ -26,6 +26,8 @@ APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
 CONTENTS_DIR="$APP_BUNDLE/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
+MIN_OS_VERSION="13.0"
+ARCHS="arm64 x86_64"
 
 # ─── 步骤 1: 检查环境 ────────────────────────────────────────────────────
 check_env() {
@@ -62,22 +64,37 @@ compile() {
 
     info "源文件: $swift_files"
 
-    # 编译为 macOS 二进制
-    xcrun swiftc \
-        -sdk "$(xcrun --sdk macosx --show-sdk-path)" \
-        -target "$(swift -version 2>&1 | grep Target | awk '{print $2}')" \
-        -o "$BUILD_DIR/$APP_NAME" \
-        -module-name "$APP_NAME" \
-        -emit-executable \
-        -framework SwiftUI \
-        -framework AppKit \
-        -framework Foundation \
-        $swift_files
+    # 分别编译 arm64 和 x86_64
+    local binaries=""
+    for arch in $ARCHS; do
+        local bin_path="$BUILD_DIR/${APP_NAME}_${arch}"
+        info "编译 ${arch}..."
+        xcrun swiftc \
+            -sdk "$(xcrun --sdk macosx --show-sdk-path)" \
+            -target "${arch}-apple-macosx${MIN_OS_VERSION}" \
+            -o "$bin_path" \
+            -module-name "$APP_NAME" \
+            -emit-executable \
+            -framework SwiftUI \
+            -framework AppKit \
+            -framework Foundation \
+            -framework UserNotifications \
+            $swift_files
+        binaries="$binaries $bin_path"
+    done
 
-    # 检查编译结果
+    # 合成为通用二进制
+    info "合并为 Universal Binary..."
+    xcrun lipo -create -output "$BUILD_DIR/$APP_NAME" $binaries
+
+    # 清理单架构二进制
+    rm -f $binaries
+
+    # 验证
+    local archs_in_bin=$(xcrun lipo -archs "$BUILD_DIR/$APP_NAME" 2>/dev/null || echo "unknown")
     if [ -f "$BUILD_DIR/$APP_NAME" ]; then
         local size=$(du -h "$BUILD_DIR/$APP_NAME" | cut -f1)
-        ok "编译成功! 二进制大小: $size"
+        ok "编译成功! Universal Binary ($archs_in_bin), 大小: $size"
     else
         error "编译失败"
         exit 1
@@ -123,7 +140,7 @@ create_bundle() {
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>LSMinimumSystemVersion</key>
-    <string>14.0</string>
+    <string>${MIN_OS_VERSION}</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSHumanReadableCopyright</key>

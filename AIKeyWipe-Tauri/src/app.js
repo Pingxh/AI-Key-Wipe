@@ -2,6 +2,7 @@
 let state = {
   targets: [],
   selectedIds: new Set(),
+  viewedId: null,        // 当前查看的目标 id（单击设置）
   isWiping: false,
   isScanning: false,
   // 路径检查结果缓存：{ filePath: boolean }
@@ -66,8 +67,8 @@ function isPathFailed(t) {
 
 // ===== 渲染目标列表 =====
 function render() {
-  const enabled = state.targets.filter(t => t.enabled).length;
-  targetCount.textContent = `${enabled}/${state.targets.length}`;
+  const selected = state.selectedIds.size;
+  targetCount.textContent = `${selected}/${state.targets.length}`;
 
   const hasData = state.targets.length > 0;
   emptyState.style.display = hasData ? 'none' : 'flex';
@@ -77,14 +78,19 @@ function render() {
 
   targetList.innerHTML = state.targets.map(t => {
     const failed = isPathFailed(t);
+    const isViewed = state.viewedId === t.id;
     return `
-    <div class="target-item ${state.selectedIds.has(t.id) ? 'selected' : ''} ${failed ? 'path-failed' : ''}"
-         data-id="${t.id}" onclick="handleTargetClick('${t.id}')">
-      ${failed ? '<span class="path-warning" title="路径失效">⚠️</span>' : ''}
-      <span class="target-dot ${t.enabled ? 'on' : 'off'}"></span>
-      <div class="target-info">
-        <div class="target-name">${esc(t.name)}${failed ? ' <span class="path-failed-label">（路径失效）</span>' : ''}</div>
-        <div class="target-path ${failed ? 'path-failed-text' : ''}">${esc(t.file_path)}</div>
+    <div class="target-item ${state.selectedIds.has(t.id) ? 'selected' : ''} ${failed ? 'path-failed' : ''} ${isViewed ? 'viewed' : ''}"
+         data-id="${t.id}">
+      <span class="checkbox-custom ${state.selectedIds.has(t.id) ? 'checked' : ''}"
+            onclick="event.stopPropagation(); toggleSelect('${t.id}')"></span>
+      <div class="target-click" onclick="viewTarget('${t.id}')">
+        ${failed ? '<span class="path-warning" title="路径失效">⚠️</span>' : ''}
+        <div class="target-info">
+          <div class="target-name">${esc(t.name)}${failed ? ' <span class="path-failed-label">（路径失效）</span>' : ''}</div>
+          <div class="target-path ${failed ? 'path-failed-text' : ''}">${esc(t.file_path)}</div>
+        </div>
+        <span class="target-dot ${t.enabled ? 'on' : 'off'}"></span>
       </div>
     </div>
   `;
@@ -103,30 +109,45 @@ function render() {
 function esc(s) { return s.replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'})[c]); }
 
 // ===== 点击处理 =====
-async function handleTargetClick(id) {
+
+// 单击行 → 查看详情（不改变选中状态）
+function viewTarget(id) {
   const t = state.targets.find(x => x.id === id);
   if (!t) return;
 
   // 如果路径失效，弹出提示
   if (isPathFailed(t)) {
-    const ok = await invoke('cmd_confirm', { message: `路径失效：\n${t.file_path}\n\n确定要从列表中移除此文件吗？` });
-    if (ok) {
-      state.targets = state.targets.filter(x => x.id !== id);
-      state.selectedIds.delete(id);
-      delete state.pathStatus[t.file_path];
-      render();
-      await saveTargets();
-    }
+    handleFailedPath(id, t);
     return;
   }
 
-  // 正常选中/取消
+  state.viewedId = id;
+  render();
+}
+
+// 复选框 → 切换选中
+function toggleSelect(id) {
+  const t = state.targets.find(x => x.id === id);
+  if (!t) return;
   if (state.selectedIds.has(id)) {
     state.selectedIds.delete(id);
   } else {
     state.selectedIds.add(id);
   }
   render();
+}
+
+// 路径失效处理
+async function handleFailedPath(id, t) {
+  const ok = await invoke('cmd_confirm', { message: '路径失效：\n' + t.file_path + '\n\n确定要从列表中移除此文件吗？' });
+  if (ok) {
+    state.targets = state.targets.filter(x => x.id !== id);
+    state.selectedIds.delete(id);
+    if (state.viewedId === id) state.viewedId = null;
+    delete state.pathStatus[t.file_path];
+    render();
+    await saveTargets();
+  }
 }
 
 function isSelected(id) { return state.selectedIds.has(id); }
@@ -136,20 +157,26 @@ function updateWipeBtn() {
   const n = state.selectedIds.size;
   wipeBtn.textContent = `🗑 清除所选 (${n})`;
   wipeBtn.disabled = n === 0 || state.isWiping;
-  wipeBtn.style.background = (n === 0 || state.isWiping) ? '#c7c7cc' : '#ff3b30';
 }
 
 // ===== 右侧面板 =====
 function updateRightPanel() {
-  const sel = state.selectedIds;
   if (state.isScanning) { showView('scanAnimation'); return; }
-  if (sel.size === 0) { showView('rightEmpty'); return; }
-  if (sel.size === 1) {
-    const t = state.targets.find(x => x.id === [...sel][0]);
+
+  // 优先显示正在查看的项
+  if (state.viewedId) {
+    const t = state.targets.find(x => x.id === state.viewedId);
     if (t) { showDetail(t); return; }
   }
-  // 多选
-  showMultiSelect();
+
+  // 多选摘要
+  if (state.selectedIds.size > 0) {
+    showMultiSelect();
+    return;
+  }
+
+  // 空状态
+  showView('rightEmpty');
 }
 
 function showView(id) {
@@ -165,9 +192,9 @@ function showMultiSelect() {
     const t = state.targets.find(x => x.id === id);
     if (!t) return '';
     return `<div class="selected-item">
-      <span class="target-dot ${t.enabled ? 'on' : 'off'}"></span>
       <span>${esc(t.name)}</span>
-      <span style="color:var(--secondary);font-size:11px">${esc(t.file_path)}</span>
+      <span style="color:var(--text-secondary);font-size:11px">${esc(t.file_path)}</span>
+      <span class="target-dot ${t.enabled ? 'on' : 'off'}"></span>
     </div>`;
   }).join('');
 }
@@ -359,7 +386,7 @@ function showResults(results) {
       </div>
     </div>`;
   }
-  html += `<div style="margin-top:12px;font-size:12px;color:var(--secondary)">
+  html += `<div style="margin:12px 0 0;font-size:12px;color:var(--text-secondary)">
     成功: ${success} / 总计: ${results.length}
     <button class="btn-link" onclick="showView('rightEmpty')" style="margin-left:12px">清除结果</button>
   </div>`;
@@ -471,6 +498,7 @@ async function clearList() {
   if (ok) {
     state.targets = state.targets.filter(t => !state.selectedIds.has(t.id));
     state.selectedIds.clear();
+    if (state.viewedId && !state.targets.some(t => t.id === state.viewedId)) state.viewedId = null;
     render();
     await saveTargets();
   }
@@ -494,6 +522,7 @@ async function clearData() {
     if (cleared !== false) {
       state.targets = [];
       state.selectedIds.clear();
+      state.viewedId = null;
       state.pathStatus = {};
       render();
       invoke('cmd_alert', { message: '本地数据已清除' });

@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "lib.rs|main.rs|models.rs|storage.rs|wipe_service.rs",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "rustfmt src-tauri/src/{filename}"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Cargo.lock",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '⚠️ 禁止直接编辑 Cargo.lock，请使用 cargo update/update' && exit 1"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": ["Edit", "Write", "Bash(cargo build:*)", "Bash(cargo test:*)"]
+  }
+}
