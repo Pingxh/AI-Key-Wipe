@@ -40,7 +40,13 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "minimumSystemVersion": "13.0"
+      "minimumSystemVersion": "13.0",
+      "entitlements": "entitlements.plist",
+      "signingIdentity": null,
+      "dmg": {
+        "backgroundColor": "#f0f0f0",
+        "windowSize": { "width": 540, "height": 380 }
+      }
     },
     "windows": {
       "wix": null,
