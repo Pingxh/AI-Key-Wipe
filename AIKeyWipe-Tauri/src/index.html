@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0a0f">
+<title>KeyClean — AI 密钥清理工具</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="ambient-grid"></div>
+<div class="container">
+  <!-- 左侧：目标列表 -->
+  <aside class="sidebar" id="sidebar">
+    <!-- 空列表状态 -->
+    <div id="emptyState" class="empty-state">
+      <div class="empty-icon">🔑</div>
+      <h2>未发现 API Key 文件</h2>
+      <p>点击下方按钮扫描配置文件</p>
+      <button class="btn btn-primary" onclick="startScan()">🔍 扫描文件</button>
+      <button class="btn-link btn-clear-data" onclick="clearData()" style="font-size:12px">清除本地数据</button>
+    </div>
+
+    <!-- 有数据状态 -->
+    <div id="listState" class="list-state" style="display:none">
+      <div class="list-header">
+        <span class="list-count" id="targetCount">0/0</span>
+        <div class="header-actions">
+          <button class="btn-link" id="btnSelectAll" onclick="selectAll()" style="font-size:12px">全选</button>
+          <span class="header-divider"></span>
+          <button class="btn-link" onclick="clearList()" style="font-size:12px;color:var(--red)">移出列表</button>
+          <span class="header-divider"></span>
+          <button class="btn-link" onclick="clearData()" style="font-size:12px;color:var(--text-secondary)">清除数据</button>
+        </div>
+      </div>
+      <div class="target-list" id="targetList"></div>
+      <div class="list-footer">
+        <div class="footer-buttons">
+          <button class="btn btn-icon" onclick="addCustom()" title="从 Finder 选择文件">📂 自定义</button>
+          <button class="btn btn-icon" onclick="startScan()" title="自动扫描 ~/ 下含 API Key 的文件">🔍 扫描</button>
+        </div>
+        <button class="btn btn-wipe" id="wipeBtn" onclick="confirmWipe()">
+          🗑 清除所选 (0)
+        </button>
+        <label class="toggle-label">
+          <input type="checkbox" id="autoRemove" checked>
+          <span>清除成功后自动从列表移除</span>
+        </label>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 右侧：详情 / 结果 -->
+  <main class="main-panel" id="mainPanel">
+    <!-- 空选择状态 -->
+    <div id="rightEmpty" class="right-placeholder">
+      <div class="placeholder-icon">🔑</div>
+      <h3>选择一个或多个清除目标</h3>
+      <p class="hint">勾选左侧复选框选择，单击行查看详情</p>
+    </div>
+
+    <!-- 扫描动画 -->
+    <div id="scanAnimation" class="scan-animation" style="display:none">
+      <div class="orbit-container">
+        <div class="folder-icon">📂</div>
+        <div class="magnifier" id="magnifier">🔍</div>
+      </div>
+      <h3>正在扫描文件…</h3>
+      <p class="scan-status" id="scanStatus">扫描 ~/ 目录下的配置文件</p>
+    </div>
+
+    <!-- 多选摘要 -->
+    <div id="multiSelectInfo" class="multi-info" style="display:none">
+      <div class="multi-icon">✅</div>
+      <h3>已选中 <span id="selectedCount">0</span> 个目标</h3>
+      <div class="selected-list" id="selectedList"></div>
+      <p class="hint">点击底部「清除所选」将只清除以上选中的目标</p>
+    </div>
+
+    <!-- 目标详情 -->
+    <div id="detailView" class="detail-view" style="display:none"></div>
+
+    <!-- 结果面板 -->
+    <div id="resultsView" class="results-view" style="display:none"></div>
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicedoc/tauri/refs/heads/dev/crates/tauri-config-schema/schema.json",
+  "productName": "KeyClean",
+  "version": "1.0.0",
+  "identifier": "com.keyclean",
+  "build": {
+    "frontendDist": "../src",
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "KeyClean — AI 密钥清理工具",
+        "width": 800,
+        "height": 600,
+        "minWidth": 640,
+        "minHeight": 480,
+        "resizable": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "trayIcon": {
+      "iconPath": "icons/tray-icon.png",
+      "iconAsTemplate": false,
+      "menuOnLeftClick": true
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "13.0"
+    },
+    "windows": {
+      "wix": null,
+      "nsis": null
+    },
+    "linux": {
+      "deb": {
+        "depends": []
+      }
+    }
+  }
+}
