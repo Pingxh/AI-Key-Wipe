@@ -227,9 +227,9 @@ pub fn scan_for_keys(progress: &dyn Fn(&str)) -> Vec<ScannedFile> {
     let patterns = DEFAULT_PATTERNS;
 
     #[cfg(target_os = "windows")]
-    let max_depth = 5;
+    let max_depth = 7;
     #[cfg(not(target_os = "windows"))]
-    let max_depth = 4;
+    let max_depth = 6;
 
     scan_dir_recursive(&home, 0, max_depth, patterns, &mut results, progress);
 
@@ -329,10 +329,11 @@ fn check_file(
     results: &mut Vec<ScannedFile>,
     progress: &dyn Fn(&str),
 ) {
+    // 取消扩展名限制，扫描所有文件
+    // 跳过明显不可读的目录（缓存/临时）
     let path_buf = path.to_path_buf();
-    let ext = path_buf.extension().map(|e| format!(".{}", e.to_string_lossy().to_lowercase()))
-        .unwrap_or_default();
-    if !CONFIG_EXTS.iter().any(|e| ext == *e) && !path_buf.to_string_lossy().contains(".env") {
+    let path_str = path_buf.to_string_lossy();
+    if path_str.contains("/.Trash/") || path_str.contains("/.cache/") {
         return;
     }
 
