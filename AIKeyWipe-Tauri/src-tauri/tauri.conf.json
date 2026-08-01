@@ -42,11 +42,7 @@
     "macOS": {
       "minimumSystemVersion": "13.0",
       "entitlements": "entitlements.plist",
-      "signingIdentity": null,
-      "dmg": {
-        "backgroundColor": "#f0f0f0",
-        "windowSize": { "width": 540, "height": 380 }
-      }
+      "signingIdentity": null
     },
     "windows": {
       "wix": null,
