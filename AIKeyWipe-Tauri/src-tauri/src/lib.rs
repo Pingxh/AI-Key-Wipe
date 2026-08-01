@@ -5,7 +5,6 @@ mod storage;
 use std::fs;
 use models::{WipeTarget, WipeResult, ScannedFile};
 use tauri::Manager;
-use tauri::Emitter;
 #[cfg(target_os = "macos")]
 use tauri::TitleBarStyle;
 use tauri::menu::{MenuBuilder, SubmenuBuilder, MenuItemBuilder, PredefinedMenuItem};
@@ -19,9 +18,11 @@ fn cmd_wipe(targets: Vec<WipeTarget>) -> Vec<WipeResult> {
 /// Tauri 命令：扫描配置文件
 #[tauri::command]
 fn cmd_scan(app: tauri::AppHandle) -> Vec<ScannedFile> {
-    wipe_service::scan_for_keys(&|msg| {
+    // 使用 let 绑定闭包，避免临时引用生命周期问题
+    let progress = |msg: &str| {
         let _ = app.emit("scan-progress", msg);
-    })
+    };
+    wipe_service::scan_for_keys(&progress)
 }
 
 /// Tauri 命令：扫描单个文件

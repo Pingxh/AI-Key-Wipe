@@ -11,7 +11,7 @@ const DEFAULT_PATTERNS: &[&str] = &[
 ];
 
 /// 要扫描的配置文件扩展名
-const CONFIG_EXTS: &[&str] = &[".env", ".envrc", ".yaml", ".yml", ".json", ".toml", ".conf", ".cfg"];
+const CONFIG_EXTS: &[&str] = &[".env", ".envrc", ".yaml", ".yml", ".json", ".toml", ".conf", ".cfg", ".txt", ".ini", ".properties"];
 
 /// 平台无关的通用跳过目录
 const SKIP_DIRS_COMMON: &[&str] = &[
