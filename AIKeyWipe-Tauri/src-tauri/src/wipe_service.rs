@@ -22,9 +22,10 @@ const SKIP_DIRS_COMMON: &[&str] = &[
 ];
 
 /// macOS 特定跳过目录
+/// 注意：Desktop/Downloads/Documents 不跳过，用户可能在这些目录下放项目文件
 #[cfg(target_os = "macos")]
 const SKIP_DIRS_PLATFORM: &[&str] = &[
-    "Library", "Applications", "Desktop", "Downloads", "Documents",
+    "Library", "Applications",
     "Public", "Music", "Pictures", "Movies",
 ];
 
