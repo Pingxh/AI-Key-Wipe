@@ -326,6 +326,7 @@ fn is_allowed_hidden_dir(name: &str) -> bool {
         | ".gnome" | ".cache" | ".local" | ".vscode" | ".idea"
         | ".git-credentials" | ".gitconfig" | ".netrc"
         | ".kube" | ".envrc"
+        | ".claude" | ".hermes" | ".openclaw" | ".cursor"
     )
 }
 
