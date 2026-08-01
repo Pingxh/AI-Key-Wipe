@@ -18,7 +18,7 @@ fn cmd_wipe(targets: Vec<WipeTarget>) -> Vec<WipeResult> {
 /// Tauri 命令：扫描配置文件
 #[tauri::command]
 fn cmd_scan(app: tauri::AppHandle) -> Vec<ScannedFile> {
-    wipe_service::scan_for_keys(|msg| {
+    wipe_service::scan_for_keys(&|msg| {
         let _ = app.emit("scan-progress", msg);
     })
 }

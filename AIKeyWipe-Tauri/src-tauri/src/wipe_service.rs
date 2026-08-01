@@ -28,16 +28,14 @@ const SKIP_DIRS_PLATFORM: &[&str] = &[
     "Public", "Music", "Pictures", "Movies",
 ];
 
-/// Windows 特定跳过目录（Windows 用户目录结构不同）
+/// Windows 特定跳过目录
 /// 注意：Desktop/Documents/Downloads 不跳过，用户可能在这些目录下放项目文件
 #[cfg(target_os = "windows")]
 const SKIP_DIRS_PLATFORM: &[&str] = &[
-    // 用户目录下的系统文件夹（不含项目文件）
     "AppData", "Application Data", "Local Settings",
     "Music", "Pictures", "Videos",
     "Public", "OneDrive", "3D Objects",
     "Contacts", "Favorites", "Links", "Saved Games", "Searches",
-    // Windows 系统目录
     "Windows", "System32", "Program Files", "Program Files (x86)",
     "ProgramData", "Recovery", "System Volume Information",
 ];
@@ -100,20 +98,17 @@ pub fn wipe_file(path: &str, custom_patterns: &[String]) -> Result<WipeResult, S
         let trimmed = line.trim();
         let leading_spaces: &str = &line[..line.len() - line.trim_start().len()];
 
-        // 跳过注释
         if trimmed.starts_with('#') || trimmed.starts_with("//") {
             modified_lines.push(line.to_string());
             continue;
         }
 
-        // 匹配模式
         let is_key_line = patterns.iter().any(|p| trimmed.contains(p.as_str()));
         if !is_key_line {
             modified_lines.push(line.to_string());
             continue;
         }
 
-        // 精确匹配自定义模式 → 整行删除
         if !custom_patterns.is_empty() {
             let trimmed2 = trimmed;
             if custom_patterns.iter().any(|cp| trimmed2 == cp.as_str() || trimmed2 == cp.trim()) {
@@ -134,7 +129,6 @@ pub fn wipe_file(path: &str, custom_patterns: &[String]) -> Result<WipeResult, S
             !after.is_empty()
         };
 
-        // 生成清除后的行
         if trimmed.contains("export ") {
             let re = Regex::new(r"^(export\s+[A-Za-z_][A-Za-z0-9_]*\s*=).*").unwrap();
             let clean = re.replace(trimmed, "$1");
@@ -216,8 +210,7 @@ pub fn execute_wipe(targets: &[WipeTarget]) -> Vec<WipeResult> {
 }
 
 /// 扫描 ~/ 下的配置文件，返回含 API Key 的文件列表
-/// 递归扫描
-pub fn scan_for_keys(progress: impl Fn(&str)) -> Vec<ScannedFile> {
+pub fn scan_for_keys(progress: &dyn Fn(&str)) -> Vec<ScannedFile> {
     let mut results = Vec::new();
     let home = match dirs::home_dir() {
         Some(h) => h,
@@ -232,44 +225,31 @@ pub fn scan_for_keys(progress: impl Fn(&str)) -> Vec<ScannedFile> {
 
     let patterns = DEFAULT_PATTERNS;
 
-    // 不同平台扫描深度不同
-    // Windows: 用户项目可能散落在 Desktop/Documents/Downloads 等目录，需要更深
     #[cfg(target_os = "windows")]
     let max_depth = 5;
     #[cfg(not(target_os = "windows"))]
     let max_depth = 4;
 
-    // 递归扫描
-    scan_dir_recursive(&home, 0, max_depth, patterns, &mut results, &progress);
+    scan_dir_recursive(&home, 0, max_depth, patterns, &mut results, progress);
 
-    // Windows 额外扫描 AppData 中的常见配置文件位置
     #[cfg(target_os = "windows")]
     {
         let paths_to_check = [
-            // 用户主目录下的 .env 等
             home.join(".env"),
             home.join(".envrc"),
             home.join(".gitconfig"),
-            // AppData\Roaming 下的常见配置
             dirs::config_dir().map(|d| d.join("pip").join("pip.conf")),
             dirs::config_dir().map(|d| d.join("npmrc")),
             dirs::config_dir().map(|d| d.join(".buckconfig")),
         ];
-
         for p in paths_to_check.iter().flatten() {
-            if p.is_file() {
-                check_file(p, patterns, &mut results, &progress);
-            }
+            if p.is_file() { check_file(p, patterns, &mut results, progress); }
         }
-
-        // 扫描 AppData\Roaming\ 下的 .env 和 .json 文件（深度1）
         if let Some(config) = dirs::config_dir() {
             if let Ok(entries) = fs::read_dir(&config) {
                 for entry in entries.flatten() {
                     let path = entry.path();
-                    if path.is_file() {
-                        check_file(&path, patterns, &mut results, &progress);
-                    }
+                    if path.is_file() { check_file(&path, patterns, &mut results, progress); }
                 }
             }
         }
@@ -286,13 +266,12 @@ fn scan_dir_recursive(
     max_depth: usize,
     patterns: &[&str],
     results: &mut Vec<ScannedFile>,
-    progress: impl Fn(&str),
+    progress: &dyn Fn(&str),
 ) {
     if depth > max_depth {
         return;
     }
 
-    // 深度 >= 2 时显示正在扫描的目录名，让用户知道进度
     if depth >= 2 {
         progress(&format!("扫描: {}", dir.display()));
     }
@@ -308,7 +287,6 @@ fn scan_dir_recursive(
     for entry in entries.flatten() {
         let path = entry.path();
 
-        // 检查是否为符号链接，避免循环引用
         if path.is_symlink() {
             continue;
         }
@@ -319,7 +297,6 @@ fn scan_dir_recursive(
                 .to_string_lossy()
                 .to_string();
 
-            // 跳过隐藏目录（以 . 开头的）除非是 .env 等常见配置目录
             if name.starts_with('.') && !is_allowed_hidden_dir(&name) {
                 continue;
             }
@@ -328,13 +305,12 @@ fn scan_dir_recursive(
                 continue;
             }
 
-            // 递归下一层
-            scan_dir_recursive(&path, depth + 1, max_depth, patterns, results, &progress);
+            scan_dir_recursive(&path, depth + 1, max_depth, patterns, results, progress);
             continue;
         }
 
         if path.is_file() {
-            check_file(&path, patterns, results, &progress);
+            check_file(&path, patterns, results, progress);
         }
     }
 }
@@ -348,7 +324,7 @@ fn check_file(
     path: &Path,
     patterns: &[&str],
     results: &mut Vec<ScannedFile>,
-    progress: impl Fn(&str),
+    progress: &dyn Fn(&str),
 ) {
     let path_buf = path.to_path_buf();
     let ext = path_buf.extension().map(|e| format!(".{}", e.to_string_lossy().to_lowercase()))
@@ -359,7 +335,6 @@ fn check_file(
 
     progress(&format!("扫描: {}", path_buf.file_name().unwrap_or_default().to_string_lossy()));
 
-    // 读取前 10KB
     let mut file = match fs::File::open(path) {
         Ok(f) => f,
         _ => return,
