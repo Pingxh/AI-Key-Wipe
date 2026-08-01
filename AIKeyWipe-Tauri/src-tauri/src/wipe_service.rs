@@ -320,7 +320,13 @@ fn scan_dir_recursive(
 
 /// 允许扫描的隐藏目录（不跳过）
 fn is_allowed_hidden_dir(name: &str) -> bool {
-    matches!(name, ".ssh" | ".gnupg" | ".aws" | ".azure" | ".gcloud" | ".docker" | ".kube")
+    matches!(name,
+        ".ssh" | ".gnupg" | ".aws" | ".azure" | ".gcloud" | ".docker" | ".kube"
+        | ".config" | ".npm" | ".yarn" | ".pnpm" | ".cargo"
+        | ".gnome" | ".cache" | ".local" | ".vscode" | ".idea"
+        | ".git-credentials" | ".gitconfig" | ".netrc"
+        | ".kube" | ".envrc"
+    )
 }
 
 fn check_file(
