@@ -6,6 +6,7 @@ use std::fs;
 use models::{WipeTarget, WipeResult, ScannedFile};
 use tauri::Manager;
 use tauri::Emitter;
+#[cfg(target_os = "macos")]
 use tauri::TitleBarStyle;
 use tauri::menu::{MenuBuilder, SubmenuBuilder, MenuItemBuilder, PredefinedMenuItem};
 

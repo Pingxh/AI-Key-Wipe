@@ -234,15 +234,17 @@ pub fn scan_for_keys(progress: &dyn Fn(&str)) -> Vec<ScannedFile> {
 
     #[cfg(target_os = "windows")]
     {
-        let paths_to_check = [
+        let mut paths_to_check = vec![
             home.join(".env"),
             home.join(".envrc"),
             home.join(".gitconfig"),
-            dirs::config_dir().map(|d| d.join("pip").join("pip.conf")),
-            dirs::config_dir().map(|d| d.join("npmrc")),
-            dirs::config_dir().map(|d| d.join(".buckconfig")),
         ];
-        for p in paths_to_check.iter().flatten() {
+        if let Some(config) = dirs::config_dir() {
+            paths_to_check.push(config.join("pip").join("pip.conf"));
+            paths_to_check.push(config.join("npmrc"));
+            paths_to_check.push(config.join(".buckconfig"));
+        }
+        for p in &paths_to_check {
             if p.is_file() { check_file(p, patterns, &mut results, progress); }
         }
         if let Some(config) = dirs::config_dir() {
