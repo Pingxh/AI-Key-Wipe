@@ -300,10 +300,7 @@ fn scan_dir_recursive(
                 .to_string_lossy()
                 .to_string();
 
-            if name.starts_with('.') && !is_allowed_hidden_dir(&name) {
-                continue;
-            }
-
+            // 只靠 SKIP_DIRS 过滤，不跳过任何隐藏目录
             if is_skip_dir(&name) {
                 continue;
             }
@@ -316,18 +313,6 @@ fn scan_dir_recursive(
             check_file(&path, patterns, results, progress);
         }
     }
-}
-
-/// 允许扫描的隐藏目录（不跳过）
-fn is_allowed_hidden_dir(name: &str) -> bool {
-    matches!(name,
-        ".ssh" | ".gnupg" | ".aws" | ".azure" | ".gcloud" | ".docker" | ".kube"
-        | ".config" | ".npm" | ".yarn" | ".pnpm" | ".cargo"
-        | ".gnome" | ".cache" | ".local" | ".vscode" | ".idea"
-        | ".git-credentials" | ".gitconfig" | ".netrc"
-        | ".kube" | ".envrc"
-        | ".claude" | ".hermes" | ".openclaw" | ".cursor"
-    )
 }
 
 fn check_file(
