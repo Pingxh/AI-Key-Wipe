@@ -42,7 +42,8 @@
     "macOS": {
       "minimumSystemVersion": "13.0",
       "entitlements": "entitlements.plist",
-      "signingIdentity": null
+      "signingIdentity": null,
+      "bundleCategory": "DeveloperTool"
     },
     "windows": {
       "wix": null,
