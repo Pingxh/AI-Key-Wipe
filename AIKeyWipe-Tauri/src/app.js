@@ -57,15 +57,23 @@ async function checkPath(path) {
 
 async function checkAllPaths() {
   const paths = state.targets.map(t => t.file_path);
-  const tasks = paths.map(p => checkPath(p));
-  await Promise.all(tasks);
+  if (paths.length === 0) return;
+  // 单次批量 RPC，避免逐个调用阻塞
+  const results = await invoke('cmd_check_paths', { paths });
+  if (!results) return;
+  for (let i = 0; i < paths.length; i++) {
+    state.pathStatus[paths[i]] = results[i] ?? false;
+  }
 }
 
 function isPathFailed(t) {
   return t && !state.pathStatus[t.file_path];
 }
 
-// ===== 渲染目标列表 =====
+// ===== 渲染目标列表（首屏只渲染前 200 条，"加载更多" 追加）=====
+const PAGE_SIZE = 200;
+let _renderedUntil = -1;
+
 function render() {
   const selected = state.selectedIds.size;
   targetCount.textContent = `${selected}/${state.targets.length}`;
@@ -74,9 +82,60 @@ function render() {
   emptyState.style.display = hasData ? 'none' : 'flex';
   listState.style.display = hasData ? 'flex' : 'none';
 
-  if (!hasData) return;
+  if (!hasData) {
+    targetList.innerHTML = '';
+    _renderedUntil = -1;
+    return;
+  }
 
-  targetList.innerHTML = state.targets.map(t => {
+  // 数据变化或首次渲染 → 全量重建（capped at PAGE_SIZE）
+  if (_renderedUntil < 0) {
+    targetList.innerHTML = '';
+  }
+
+  const cap = Math.min(_renderedUntil < 0 ? PAGE_SIZE : state.targets.length, state.targets.length);
+  if (cap > _renderedUntil) {
+    const newItems = state.targets.slice(_renderedUntil + 1, cap);
+    if (newItems.length > 0) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = buildRowsHTML(newItems);
+      while (tmp.firstChild) targetList.appendChild(tmp.firstChild);
+      _renderedUntil = cap - 1;
+    }
+  }
+
+  // "加载更多" 按钮
+  const remaining = state.targets.length - (_renderedUntil + 1);
+  const btn = document.getElementById('btnLoadMore');
+  if (remaining > 0) {
+    if (!btn) {
+      const el = document.createElement('div');
+      el.id = 'btnLoadMore';
+      el.innerHTML = `<button class="btn-link" onclick="loadMoreItems()">加载更多 (${remaining} 条)</button>`;
+      targetList.appendChild(el);
+    } else {
+      btn.innerHTML = `<button class="btn-link" onclick="loadMoreItems()">加载更多 (${remaining} 条)</button>`;
+    }
+  } else if (btn) {
+    btn.remove();
+  }
+
+  updateWipeBtn();
+  updateRightPanel();
+  const btnSelectAll = document.getElementById('btnSelectAll');
+  if (btnSelectAll) {
+    const allSelected = state.targets.length > 0 && state.selectedIds.size === state.targets.length;
+    btnSelectAll.textContent = allSelected ? '取消全选' : '全选';
+  }
+}
+
+function loadMoreItems() {
+  _renderedUntil = state.targets.length - 1;
+  render();
+}
+
+function buildRowsHTML(items) {
+  return items.map(t => {
     const failed = isPathFailed(t);
     const isViewed = state.viewedId === t.id;
     return `
@@ -92,19 +151,12 @@ function render() {
         </div>
         <span class="target-dot ${t.enabled ? 'on' : 'off'}"></span>
       </div>
-    </div>
-  `;
+    </div>`;
   }).join('');
-
-  updateWipeBtn();
-  updateRightPanel();
-  // 更新全选按钮文字
-  const btnSelectAll = document.getElementById('btnSelectAll');
-  if (btnSelectAll) {
-    const allSelected = state.targets.length > 0 && state.selectedIds.size === state.targets.length;
-    btnSelectAll.textContent = allSelected ? '取消全选' : '全选';
-  }
 }
+
+// 数据变化时重置渲染状态
+function resetRender() { _renderedUntil = -1; }
 
 function esc(s) { return s.replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'})[c]); }
 
@@ -321,6 +373,7 @@ const originalStartScan = async function() {
   }
   // 检查路径（新增的路径需要更新 pathStatus）
   await checkAllPaths();
+  resetRender();
   render();
   // 保存
   await saveTargets();
@@ -368,6 +421,7 @@ async function confirmWipe() {
     }
     await saveTargets();
   }
+  resetRender();
   render();
   showResults(results);
 
@@ -511,6 +565,7 @@ async function clearList() {
     state.targets = state.targets.filter(t => !state.selectedIds.has(t.id));
     state.selectedIds.clear();
     if (state.viewedId && !state.targets.some(t => t.id === state.viewedId)) state.viewedId = null;
+    resetRender();
     render();
     await saveTargets();
   }

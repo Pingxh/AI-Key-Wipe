@@ -2,6 +2,7 @@ use std::fs;
 use std::io::Read;
 use std::path::Path;
 use regex::Regex;
+use tauri::Emitter;
 use crate::models::{WipeTarget, WipeResult, ScannedFile};
 
 /// 内置默认匹配模式
@@ -355,4 +356,16 @@ fn check_file(
             results.push(ScannedFile { path: full_path, name });
         }
     }
+}
+
+/// 批量检查路径是否存在
+pub fn check_paths(app: tauri::AppHandle, paths: &[String]) -> Vec<bool> {
+    let app = app.clone();
+    paths.iter()
+        .map(|p| {
+            let exists = fs::metadata(p).is_ok();
+            let _ = app.emit("scan-progress", p.as_str());
+            exists
+        })
+        .collect()
 }

@@ -61,6 +61,12 @@ fn cmd_scan_file(path: String, custom_patterns: Vec<String>) -> Vec<String> {
     found
 }
 
+/// Tauri 命令：批量检查路径是否存在
+#[tauri::command]
+fn cmd_check_paths(paths: Vec<String>, app: tauri::AppHandle) -> Vec<bool> {
+    wipe_service::check_paths(app.clone(), &paths)
+}
+
 /// Tauri 命令：在文件中显示（macOS 访达 / Windows 资源管理器）
 #[tauri::command]
 fn cmd_reveal(path: String) {
@@ -252,7 +258,7 @@ pub fn run() {
                 let _ = window.app_handle().set_activation_policy(tauri::ActivationPolicy::Accessory);
             }
         })
-        .invoke_handler(tauri::generate_handler![cmd_wipe, cmd_scan, cmd_scan_file, cmd_reveal, cmd_pick_file, cmd_confirm, cmd_alert, cmd_load_targets, cmd_save_targets, cmd_check_path, cmd_clear_data])
+        .invoke_handler(tauri::generate_handler![cmd_wipe, cmd_scan, cmd_scan_file, cmd_reveal, cmd_pick_file, cmd_confirm, cmd_alert, cmd_load_targets, cmd_save_targets, cmd_check_path, cmd_check_paths, cmd_clear_data])
         .run(tauri::generate_context!())
         .expect("启动 AI-Key-Wipe 失败");
 }
