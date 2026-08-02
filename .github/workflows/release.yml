@@ -63,13 +63,15 @@ jobs:
       - name: codesign + repack macOS dmg
         if: matrix.os == 'macos-latest'
         run: |
-          APP="AIKeyWipe-Tauri/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/KeyClean.app"
+          APP="AIKeyWipe-Tauri/src-tauri/target/release/bundle/macos/KeyClean.app"
+          DMG="AIKeyWipe-Tauri/src-tauri/target/release/bundle/macos/KeyClean.dmg"
           codesign --sign - --force --deep --options runtime "$APP"
           codesign --verify --verbose "$APP"
-          echo "repaking signed app into new dmg..."
-          D="${APP%/*.app}"
-          hdiutil create -volname "KeyClean" -srcfolder "$D" -ov -format UDZO "${D}_signed.dmg"
-          mv "${D}_signed.dmg" "${D}.dmg"
+          echo "repaking signed app into fresh dmg..."
+          TMP="/tmp/KeyClean_unsigned"
+          mkdir -p "$TMP"
+          cp -R "$APP" "$TMP/KeyClean.app"
+          hdiutil create -volname "KeyClean" -srcfolder "$TMP" -ov -format UDZO "$DMG"
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -77,5 +79,5 @@ jobs:
       - name: upload signed dmg to release
         if: matrix.os == 'macos-latest'
         run: |
-          ASSET="AIKeyWipe-Tauri/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/KeyClean.dmg"
+          ASSET="AIKeyWipe-Tauri/src-tauri/target/release/bundle/macos/KeyClean.dmg"
           gh release upload ${{ github.ref_name }} "$ASSET" --clobber
