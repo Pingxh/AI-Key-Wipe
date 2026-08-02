@@ -9,21 +9,17 @@ permissions: write-all
 
 jobs:
   build:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       matrix:
         include:
           - os: macos-latest
-            target: aarch64-apple-darwin
-            bundle: dmg
+            buildArgs: --bundle app
           - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            bundle: msi
+            buildArgs: --bundle msi
           - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            bundle: deb
-
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+            buildArgs: --bundle deb
 
     steps:
       - uses: actions/checkout@v4
@@ -51,7 +47,6 @@ jobs:
           releaseName: 'KeyClean v__VERSION__'
           releaseBody: |
             请从下方 Assets 下载对应平台的安装包。
-
             | 平台 | 安装包 |
             |------|--------|
             | macOS | `KeyClean.dmg` |
@@ -59,6 +54,7 @@ jobs:
             | Linux | `.deb` |
           releaseDraft: true
           includeDebug: false
+          args: ${{ matrix.buildArgs }}
 
       - name: codesign + repack macOS dmg
         if: matrix.os == 'macos-latest'
@@ -67,14 +63,13 @@ jobs:
           DMG="AIKeyWipe-Tauri/src-tauri/target/release/bundle/macos/KeyClean.dmg"
           codesign --sign - --force --deep --options runtime "$APP"
           codesign --verify --verbose "$APP"
-          echo "repaking signed app into fresh dmg..."
+          echo "repackaging signed app into fresh dmg..."
           TMP="/tmp/KeyClean_unsigned"
+          rm -rf "$TMP"
           mkdir -p "$TMP"
           cp -R "$APP" "$TMP/KeyClean.app"
           hdiutil create -volname "KeyClean" -srcfolder "$TMP" -ov -format UDZO "$DMG"
         shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: upload signed dmg to release
         if: matrix.os == 'macos-latest'
@@ -82,9 +77,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ASSET="AIKeyWipe-Tauri/src-tauri/target/release/bundle/macos/KeyClean.dmg"
-          # 找 release 的 upload_url
           UPLOAD_URL=$(curl -s \
-            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/Pingxh/AI-Key-Wipe/releases/tags/${{ github.ref_name }}" | \
             grep '"upload_url"' | head -1 | sed 's/.*"upload_url": "//;s/".*//')
           if [ -z "$UPLOAD_URL" ]; then
@@ -93,7 +87,7 @@ jobs:
           fi
           echo "uploading signed dmg to release..."
           curl -s -X POST \
-            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Content-Type: application/octet-stream" \
             "${UPLOAD_URL}?name=KeyClean.dmg" \
             -T "$ASSET"
