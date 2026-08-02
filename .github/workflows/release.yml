@@ -37,8 +37,8 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev build-essential curl wget file \
+          sudo apt-get install -y \\
+            libwebkit2gtk-4.1-dev build-essential curl wget file \\
             libssl-dev libayatana-appindicator3-dev librsvg2-dev
 
       - name: 构建
@@ -54,8 +54,28 @@ jobs:
 
             | 平台 | 安装包 |
             |------|--------|
-            | macOS | `.dmg` |
+            | macOS | `KeyClean.dmg` |
             | Windows | `.msi` |
             | Linux | `.deb` |
           releaseDraft: true
           includeDebug: false
+
+      - name: codesign + repack macOS dmg
+        if: matrix.os == 'macos-latest'
+        run: |
+          APP="AIKeyWipe-Tauri/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/KeyClean.app"
+          codesign --sign - --force --deep --options runtime "$APP"
+          codesign --verify --verbose "$APP"
+          echo "repaking signed app into new dmg..."
+          D="${APP%/*.app}"
+          hdiutil create -volname "KeyClean" -srcfolder "$D" -ov -format UDZO "${D}_signed.dmg"
+          mv "${D}_signed.dmg" "${D}.dmg"
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: upload signed dmg to release
+        if: matrix.os == 'macos-latest'
+        run: |
+          ASSET="AIKeyWipe-Tauri/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/KeyClean.dmg"
+          gh release upload ${{ github.ref_name }} "$ASSET" --clobber
