@@ -57,7 +57,7 @@ jobs:
             | macOS | `KeyClean.dmg` |
             | Windows | `.msi` |
             | Linux | `.deb` |
-          releaseDraft: true
+          releaseDraft: false
           includeDebug: false
 
       - name: codesign + repack macOS dmg
