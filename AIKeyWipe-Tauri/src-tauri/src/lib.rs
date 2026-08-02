@@ -20,7 +20,7 @@ fn cmd_wipe(targets: Vec<WipeTarget>) -> Vec<WipeResult> {
 /// Tauri 命令：扫描配置文件（后台线程，避免阻塞 UI）
 #[tauri::command(async)]
 async fn cmd_scan(app: tauri::AppHandle) -> Vec<ScannedFile> {
-    let app = app.clone();
+    let app_err = app.clone();
     async_runtime::spawn_blocking(move || {
         let progress = |msg: &str| {
             let _ = app.emit("scan-progress", msg);
@@ -29,7 +29,7 @@ async fn cmd_scan(app: tauri::AppHandle) -> Vec<ScannedFile> {
     })
     .await
     .unwrap_or_else(|e| {
-        let _ = app.emit("scan-progress", &format!("扫描错误: {:?}", e));
+        let _ = app_err.emit("scan-progress", &format!("扫描错误: {:?}", e));
         Vec::new()
     })
 }
@@ -64,9 +64,6 @@ fn cmd_scan_file(path: String, custom_patterns: Vec<String>) -> Vec<String> {
 /// Tauri 命令：在文件中显示（macOS 访达 / Windows 资源管理器）
 #[tauri::command]
 fn cmd_reveal(path: String) {
-    use std::path::Path;
-    let p = Path::new(&path);
-
     #[cfg(target_os = "macos")]
     std::process::Command::new("open")
         .args(["-R", &path])
@@ -75,8 +72,9 @@ fn cmd_reveal(path: String) {
 
     #[cfg(target_os = "windows")]
     {
+        use std::path::Path;
         let win_path = path.replace('/', "\\");
-        let win_path_buf = std::path::Path::new(&win_path);
+        let win_path_buf = Path::new(&win_path);
         if win_path_buf.exists() {
             // 文件存在，高亮选中
             std::process::Command::new("explorer")
