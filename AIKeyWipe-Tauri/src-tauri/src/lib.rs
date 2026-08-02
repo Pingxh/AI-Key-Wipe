@@ -9,6 +9,7 @@ use tauri::Emitter;
 #[cfg(target_os = "macos")]
 use tauri::TitleBarStyle;
 use tauri::menu::{MenuBuilder, SubmenuBuilder, MenuItemBuilder, PredefinedMenuItem};
+use tauri::async_runtime;
 
 /// Tauri 命令：执行批量清除
 #[tauri::command]
@@ -16,14 +17,21 @@ fn cmd_wipe(targets: Vec<WipeTarget>) -> Vec<WipeResult> {
     wipe_service::execute_wipe(&targets)
 }
 
-/// Tauri 命令：扫描配置文件
-#[tauri::command]
-fn cmd_scan(app: tauri::AppHandle) -> Vec<ScannedFile> {
-    // 使用 let 绑定闭包，避免临时引用生命周期问题
-    let progress = |msg: &str| {
-        let _ = app.emit("scan-progress", msg);
-    };
-    wipe_service::scan_for_keys(&progress)
+/// Tauri 命令：扫描配置文件（后台线程，避免阻塞 UI）
+#[tauri::command(async)]
+async fn cmd_scan(app: tauri::AppHandle) -> Vec<ScannedFile> {
+    let app = app.clone();
+    async_runtime::spawn_blocking(move || {
+        let progress = |msg: &str| {
+            let _ = app.emit("scan-progress", msg);
+        };
+        wipe_service::scan_for_keys(&progress)
+    })
+    .await
+    .unwrap_or_else(|e| {
+        let _ = app.emit("scan-progress", &format!("扫描错误: {:?}", e));
+        Vec::new()
+    })
 }
 
 /// Tauri 命令：扫描单个文件
@@ -56,6 +64,9 @@ fn cmd_scan_file(path: String, custom_patterns: Vec<String>) -> Vec<String> {
 /// Tauri 命令：在文件中显示（macOS 访达 / Windows 资源管理器）
 #[tauri::command]
 fn cmd_reveal(path: String) {
+    use std::path::Path;
+    let p = Path::new(&path);
+
     #[cfg(target_os = "macos")]
     std::process::Command::new("open")
         .args(["-R", &path])
@@ -64,12 +75,26 @@ fn cmd_reveal(path: String) {
 
     #[cfg(target_os = "windows")]
     {
-        // 将路径中的 / 转为 \
         let win_path = path.replace('/', "\\");
-        std::process::Command::new("explorer")
-            .args(["/select,", &win_path])
-            .spawn()
-            .ok();
+        let win_path_buf = std::path::Path::new(&win_path);
+        if win_path_buf.exists() {
+            // 文件存在，高亮选中
+            std::process::Command::new("explorer")
+                .args(["/select,", &win_path])
+                .spawn()
+                .ok();
+        } else {
+            // 文件不存在，打开父目录
+            if let Some(parent) = win_path_buf.parent() {
+                let parent_str = parent.to_string_lossy().to_string();
+                if parent_str.len() > 0 && std::path::Path::new(&parent_str).exists() {
+                    std::process::Command::new("explorer")
+                        .args([&parent_str])
+                        .spawn()
+                        .ok();
+                }
+            }
+        }
     }
 }
 

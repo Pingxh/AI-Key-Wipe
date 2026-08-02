@@ -218,7 +218,7 @@ function showDetail(t) {
       <div class="detail-row">
         <label>实际路径</label>
         <span class="mono">${esc(t.expanded_path || t.file_path)}</span>
-        <button class="btn-link" onclick="revealFinder('${esc(t.file_path)}')">在访达中显示</button>
+        <button class="btn-link" onclick="revealFinder('${esc(t.file_path)}')">打开文件</button>
       </div>
       <div class="detail-row">
         <label>启用</label>
